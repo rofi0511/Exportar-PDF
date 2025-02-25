@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { FaUpload, FaCheckCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
 
+const backendURL =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:5001"  // Para pruebas
+    : "http://192.168.137.54:5000"; // Para producción
+
 function App() {
   const [files, setFiles] = useState([]);
   const [downloadUrl, setDownloadUrl] = useState("");
@@ -20,7 +25,7 @@ function App() {
     files.forEach(file => formData.append("files", file));
 
     try {
-      const response = await fetch("http://192.168.137.54:5000/upload", {
+      const response = await fetch(`${backendURL}/upload`, {
         method: "POST",
         body: formData,
       });
@@ -42,12 +47,12 @@ function App() {
     try {
       console.log("Generando archivo en formato:", fileType)
 
-      const response = await fetch(`http://192.168.137.54:5000/generate?file_type=${fileType}`)
+      const response = await fetch(`${backendURL}/generate?file_type=${fileType}`)
       const data = await response.json()
       console.log("Archivo generado:", data)
 
       if (data.file_path) {
-        const downloadUrl = `http://192.168.137.54:5000/${data.file_path}`
+        const downloadUrl = `${backendURL}/${data.file_path}`
         setDownloadUrl(downloadUrl)
       } else {
         console.error("Error: No se pudo generar el archivo.")
