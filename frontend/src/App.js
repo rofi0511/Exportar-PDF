@@ -14,12 +14,15 @@ function App() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [fileType, setFileType] = useState("excel");
   const [showDownloadOptions, setShowDownloadOptions] = useState(false)
+  const [fileGeneratedMessage, setFileGeneratedMessage] = useState("")
 
   const handleUpload = async () => {
     if (files.length === 0) return;
     setIsProcessing(true);
     setUploadSuccess(false);
     setShowDownloadOptions(false);
+    setDownloadUrl("");
+    setFileGeneratedMessage("");
     
     const formData = new FormData();
     files.forEach(file => formData.append("files", file));
@@ -46,14 +49,15 @@ function App() {
   const handleGenerateFile = async () => {
     try {
       console.log("Generando archivo en formato:", fileType)
+      setFileGeneratedMessage("");
 
       const response = await fetch(`${backendURL}/generate?file_type=${fileType}`)
       const data = await response.json()
       console.log("Archivo generado:", data)
 
       if (data.file_path) {
-        const downloadUrl = `${backendURL}/${data.file_path}`
-        setDownloadUrl(downloadUrl)
+        setDownloadUrl(`${backendURL}/${data.file_path}`)
+        setFileGeneratedMessage(`✅ Archivo generado en formato ${fileType.toUpperCase()} y listo para descargar.`)
       } else {
         console.error("Error: No se pudo generar el archivo.")
       }
@@ -160,7 +164,7 @@ function App() {
           </motion.div>
         )}
 
-        {/*showDownloadOptions && (
+        {showDownloadOptions && (
           <div className="mt-4 flex flex-col items-center">
             <label className="text-gray-900 font-semibold mb-2">Selecciona el tipo de archivo:</label>
             <select className="mb-4 p-2 border rounded-lg" value={fileType} onChange={(e) => setFileType(e.target.value)}>
@@ -178,11 +182,27 @@ function App() {
             </motion.button>
 
           </div>
-        )*/}
+        )}
+
+        {fileGeneratedMessage &&(
+          <motion.div
+          className="mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-lg shadow-md"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          >
+            {fileGeneratedMessage}
+          </motion.div>
+        )}
 
         {downloadUrl && (
           <a href={downloadUrl} download>
-            <button>Descargar Archivo</button>
+            <motion.button
+              className="mt-6 bg-green-500 px-6 py-3 rounded-lg hover:bg-green-700 text-lg font-semibold w-full shadow-md"
+              whileTap={{ scale: 0.95 }}
+            >
+              📥 Descargar Archivo
+            </motion.button>
           </a>
         )}
           
