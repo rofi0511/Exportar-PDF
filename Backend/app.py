@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import pdfplumber
 from werkzeug.utils import secure_filename
-from extractor import extract_movements, extract_bbva
+from extractor import extract_movements, extract_bbva, extract_banamex, extract_banregio, extract_azteca, extract_inbursa, extract_santander, extract_banorte
 from db import insert_data
 from model import predecir_etiqueta
 from flask_cors import CORS
@@ -28,6 +28,9 @@ def save_to_file(data_dict, filename, file_type):
     for sheet_name, df in data_dict.items():
         if "fecha_operacion" in df.columns:
             df["fecha"] = pd.to_datetime(df["fecha_operacion"], errors='coerce').dt.strftime("%d/%m/%Y")
+        if "etiqueta" not in df.columns:
+            print(f"⚠️ Error: La columna 'etiqueta' no existe en la hoja '{sheet_name}'. Se asignará 'Sin etiqueta'.")
+            df["etiqueta"] = "Sin etiqueta"
         df["retiro"] = df.apply(lambda row: row["monto"] if "retiro" in row["etiqueta"].lower() else 0, axis=1)
         df["deposito"] = df.apply(lambda row: row["monto"] if "deposito" in row["etiqueta"].lower() else 0, axis=1)
         df["referencia"] = df["referencia"].fillna("N/A")
@@ -80,18 +83,51 @@ def upload_files():
         
         with pdfplumber.open(filepath) as pdf:
             full_text = "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
-        
+
+        print(f"📄 Texto extraído del PDF:\n{full_text[:1000]}")
+
         if "Scotiabank" in full_text:
+            print("🏦 Scotia detectado")
             bank = "Scotiabank"
             data = extract_movements(full_text, bank)
+        elif "Banco Santander México" in full_text or "CUENTA SANTANDER PYME" in full_text:
+            print("🏦 Santander detectado")
+            bank = "Santander"
+            data = extract_santander(full_text)
+        elif "Banco Mercantil del Norte" in full_text:
+            print("💳 Banorte detectado")
+            bank = "Banorte"
+            data = extract_banorte(full_text)
+        elif "BANCO INBURSA" in full_text:
+            print("💳 Inbursa")
+            bank = "Inbursa"
+            data = extract_inbursa(full_text)
+        elif "CUENTA DE CHEQUES MONEDA NACIONAL" in full_text or "INVERSION EMPRESARIAL" in full_text:
+            print("🏦 Banamex detectado")
+            bank = "Banamex"
+            data = extract_banamex(full_text)
+        elif "BANCO AZTECA" in full_text:
+            print("🏦 Banco Azteca detectado")
+            bank = "Banco Azteca"
+            data = extract_azteca(full_text)
         elif "BBVA" in full_text:
+            print("🏦 BBVA detectado")
             bank = "BBVA"
             data = extract_bbva(full_text)
+        elif "Banregio" in full_text:
+            print("🏦 Banregio detectado")
+            print("Banregio")
+            bank = "Banregio"
+            data = extract_banregio(full_text)
+
         else:
             return jsonify({"error": f"Banco no reconocido en {filename}"}), 400
         
         if not data.empty:
-            data["etiqueta"] = data.apply(lambda row: predecir_etiqueta(row["descripcion"], row["monto"]), axis=1)
+            if "descripcion" not in data.columns or "monto" not in data.columns:
+                print(f"⚠️ Error: No existen las columnas esperadas en data: {data.columns}")
+            else:
+                data["etiqueta"] = data.apply(lambda row: predecir_etiqueta(row["descripcion"], row["monto"]), axis=1)
             insert_data(data)
             all_movements[filename.replace(".pdf", "")] = data
     
